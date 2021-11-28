@@ -1,34 +1,15 @@
 package actor
 
-//
-type Actor struct {
-	pid     *Pid
-	mailbox *MailBox
+type Actor interface {
+	Pid() string
+	Sender
+	Receiver
 }
 
-type ActorAbility interface {
-	Receive(sender *Pid, msg interface{}) error
-	Send(sender, receiver *Pid, msg interface{})
+type Sender interface {
+	SendTo(receiver string, msg interface{})
 }
 
-//
-func (a *Actor) init() {
-
-}
-
-//
-func NewActor() *Actor {
-	a := &Actor{}
-	a.pid = &Pid{}
-	a.mailbox = &MailBox{}
-	a.init()
-	return a
-}
-
-func (a *Actor) Receive(sender *Pid, msg interface{}) error {
-	return nil
-}
-
-func (a *Actor) Send(sender, receiver *Pid, msg interface{}) {
-
+type Receiver interface {
+	Receive(msg *Mail)
 }
