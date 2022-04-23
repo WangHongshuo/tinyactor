@@ -2,7 +2,6 @@ package stub
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/WangHongshuo/TinyActor/actor"
@@ -29,17 +28,16 @@ func (ta *TestActor) Receive(msg *actor.Mail) {
 		fmt.Printf("Pid[%v]: nil msg", ta.Pid())
 		return
 	}
-	m, ok := msg.Msg.(string)
-	if !ok {
+	switch msg.Msg.(type) {
+	case string:
+		fmt.Printf("Pid[%v]: proc msg from [%v]: %v\n", ta.Pid(), msg.Sender, msg.Msg)
+	case *DelayMsg:
+		duration := msg.Msg.(*DelayMsg).Duration
+		fmt.Printf("Pid[%v]: wait %v \n", ta.Pid(), duration)
+		time.Sleep(duration)
+		fmt.Printf("Pid[%v]: wait %v ok\n", ta.Pid(), duration)
+	default:
 		fmt.Printf("Pid[%v]: unsupport msg type[%t]\n", ta.Pid(), msg.Msg)
-	}
-	fmt.Printf("Pid[%v]: proc msg from [%v]: %v\n", ta.Pid(), msg.Sender, m)
-	if m == "wait 1s" {
-		fmt.Printf("Pid[%v]: wait 1s \n", ta.Pid())
-		time.Sleep(time.Second * 1)
-		fmt.Printf("Pid[%v]: wait 1s ok\n", ta.Pid())
-	} else if strings.Contains(m, "Hello") {
-		ta.SendTo(msg.Sender, "Hi, "+msg.Sender)
 	}
 }
 
