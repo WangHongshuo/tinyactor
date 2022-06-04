@@ -1,64 +1,58 @@
 package actor
 
-import "fmt"
+import (
+	"log"
+)
 
 const defatuMailBoxSize = 10
 
 type MailBox struct {
-	actor    *ActorBase
-	mailBox  chan *Mail
-	receiver Receiver
+	mailBox chan interface{}
+	ctx     ReceiverContext
 }
 
 // NewMailBox
-func NewMailBox(a Actor, ab *ActorBase, size int) *MailBox {
-	if a == nil || ab == nil {
+func NewMailBox(ctx Context, size int) *MailBox {
+	if ctx == nil {
 		return nil
 	}
 	mb := &MailBox{}
 	if size <= 0 {
 		size = defatuMailBoxSize
 	}
-	mb.actor = ab
-	mb.mailBox = make(chan *Mail, size)
-	mb.receiver = a
+	mb.mailBox = make(chan interface{}, size)
+	mb.ctx = ctx
+	mb.schedule()
 	return mb
 }
 
-// InBox
-func (m *MailBox) InBox(msg *Mail) {
+func (m *MailBox) schedule() {
+	log.Default().Printf("[%v]: start new goroutine\n", m.ctx.Self())
+	go func() {
+		for {
+			msg, ok := <-m.mailBox
+			if ok {
+				if messageEnvelope, ok := msg.(*MessageEnvelope); ok {
+					m.ctx.Receive(messageEnvelope)
+				}
+			} else {
+				break
+			}
+		}
+		log.Default().Printf("[%v]: goroutine end\n", m.ctx.Self())
+	}()
+}
+
+// inBox
+func (m *MailBox) inBox(msg interface{}) {
 	if m == nil || msg == nil {
 		return
 	}
 	select {
 	case m.mailBox <- msg:
-		fmt.Printf("Pid[%v]: recv msg from [%v]\n", m.Pid(), msg.Sender)
+		log.Default().Printf("[%v]: MailBox in\n", m.ctx.Self())
 	default:
-		fmt.Printf("MailBox[%v]: box is full.\n", m.Pid())
+		log.Default().Printf("[%v]: MailBox is full.\n", m.ctx.Self())
 		return
 	}
-	if m.actor.IsIdle() {
-		fmt.Printf("Pid[%v]: start new goroutine\n", m.Pid())
-		m.actor.ChangeStatusToRunning()
-		go func() {
-			for {
-				msg, ok := <-m.mailBox
-				if ok {
-					m.receiver.Receive(msg)
-				} else {
-					break
-				}
-			}
-			fmt.Printf("Pid[%v]: goroutine end\n", m.Pid())
-			m.actor.ChangeStatusToIdle()
-		}()
-	}
-}
-
-// Pid
-func (m *MailBox) Pid() string {
-	if m == nil {
-		return INVALID_PID
-	}
-	return m.actor.Pid()
 }

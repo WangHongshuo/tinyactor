@@ -2,49 +2,52 @@ package stub
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/WangHongshuo/TinyActor/actor"
 )
 
+var ActorSystem *actor.ActorSystem
+
 type TestActor struct {
-	a *actor.ActorBase
+	ctx     actor.Context
+	Spawner actor.SpawnerContext
+	Sender  actor.SenderContext
 }
 
-func NewTestActor(name string, po *actor.PostOffice, mailBoxSize int) *TestActor {
-	if po == nil {
-		return nil
+func NewTestActor(name string) (*actor.PID, *TestActor) {
+	testActor := &TestActor{}
+	pid, err := ActorSystem.Root.SpawnFromInstance(name, testActor)
+	if err != nil {
+		fmt.Println(err)
+		return nil, nil
 	}
-	ta := &TestActor{a: actor.NewActor(name)}
-	ta.a.Init(po, mailBoxSize, ta)
-	return ta
+	return pid, testActor
 }
 
-func (ta *TestActor) Receive(msg *actor.Mail) {
+func (ta *TestActor) Receive(ctx actor.Context) {
 	if ta == nil {
 		return
 	}
+	msg := ctx.Message()
 	if msg == nil {
-		fmt.Printf("Pid[%v]: nil msg", ta.Pid())
+		log.Default().Printf("[%v]: nil msg", ctx.Self())
 		return
 	}
-	switch msg.Msg.(type) {
+	switch m := msg.(type) {
+	case *actor.Started:
+		log.Default().Printf("[%v]: Actor Started!\n", ctx.Self())
+		ta.ctx = ctx
+		ta.Spawner = ctx
+		ta.Sender = ctx
 	case string:
-		fmt.Printf("Pid[%v]: proc msg from [%v]: %v\n", ta.Pid(), msg.Sender, msg.Msg)
+		log.Default().Printf("[%v]: proc msg from [%v]: %v\n", ctx.Self(), ctx.Sender(), m)
 	case *DelayMsg:
-		duration := msg.Msg.(*DelayMsg).Duration
-		fmt.Printf("Pid[%v]: wait %v \n", ta.Pid(), duration)
-		time.Sleep(duration)
-		fmt.Printf("Pid[%v]: wait %v ok\n", ta.Pid(), duration)
+		log.Default().Printf("[%v]: wait %v \n", ctx.Self(), m.Duration)
+		time.Sleep(m.Duration)
+		log.Default().Printf("[%v]: wait %v ok\n", ctx.Self(), m.Duration)
 	default:
-		fmt.Printf("Pid[%v]: unsupport msg type[%t]\n", ta.Pid(), msg.Msg)
+		log.Default().Printf("[%v]: unsupport msg type[%T]\n", ctx.Self(), m)
 	}
-}
-
-func (ta *TestActor) SendTo(receiver string, msg interface{}) {
-	ta.a.SendTo(receiver, msg)
-}
-
-func (ta *TestActor) Pid() string {
-	return ta.a.Pid()
 }
